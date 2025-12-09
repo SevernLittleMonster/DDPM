@@ -38,13 +38,15 @@ class SelfAttention(nn.Module):
         self.size = size
         self.mha = nn.MultiheadAttention(channels, 4, batch_first=True)
         self.ln = nn.LayerNorm([channels])
+        """按照像素进行归一化,把像素的多个维度进行归一化
+        此时他的输入维度为[batch_size, channels, height, width]变成了[batch_size, height * width, channels]"""
         self.ff_self = nn.Sequential(
             nn.LayerNorm([channels]),
             nn.Linear(channels, channels),
             nn.GELU(),
             nn.Linear(channels, channels),
         )
-
+    "attention to add to feedforward to add" 
     def forward(self, x):
         x = x.view(-1, self.channels, self.size * self.size).swapaxes(1, 2)
         x_ln = self.ln(x)
@@ -55,6 +57,13 @@ class SelfAttention(nn.Module):
 
 
 class DoubleConv(nn.Module):
+    """
+    Double convolution layer
+    这里进行的就是 卷积+归一化+激活函数+卷积+归一化+激活函数
+    一般来说在 U-Net 架构中，我们很少只用一层卷积，而是习惯连续使用两层卷积来增加网络的深度和非线性能力，同时保持特征图的尺寸（通过填充）。
+
+    这里特别强调一下Group Norm是怎么实现的:他将所有的一个层的所有通道进行了归一化处理,这是对于对于一张图来说的
+    """
     def __init__(self, in_channels, out_channels, mid_channels=None, residual=False):
         super().__init__()
         self.residual = residual
