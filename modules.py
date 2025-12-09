@@ -4,6 +4,7 @@ import torch.nn.functional as F
 
 
 class EMA:
+    """稳定器"""
     def __init__(self, beta):
         super().__init__()
         self.beta = beta
@@ -85,6 +86,13 @@ class DoubleConv(nn.Module):
 
 
 class Down(nn.Module):
+    """
+    Down 的 Docstring
+    这里的 down 模块是把输入的图片进行下采样，并且进行卷积操作，最后进行归一化操作，最后进行激活函数操作
+    降低分辨率（图片变小）：通过池化层让特征图的长宽减半。
+    增加特征厚度（通道变多）：提取更深层的抽象特征。
+    注入时间信息(Time Embedding):告诉这一层网络“现在是扩散过程的第几步”。
+    """
     def __init__(self, in_channels, out_channels, emb_dim=256):
         super().__init__()
         self.maxpool_conv = nn.Sequential(
@@ -105,6 +113,13 @@ class Down(nn.Module):
 
 
 class Up(nn.Module):
+    """
+    Up 的 Docstring
+    这里进行的就是 上采样+卷积+归一化+激活函数+卷积+归一化+激活函数
+    这里的上采样操作是使用双线性插值进行上采样，然后进行卷积操作，最后进行归一化操作，最后进行激活函数操作
+    
+    对于这里的forward函数,我们首先进行了上采样,然后进行了拼接操作,然后进行了卷积操作，最后进行了归一化操作，最后进行激活函数操作
+    """
     def __init__(self, in_channels, out_channels, emb_dim=256):
         super().__init__()
 
