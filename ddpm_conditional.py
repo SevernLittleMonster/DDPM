@@ -14,21 +14,23 @@ logging.basicConfig(format="%(asctime)s - %(levelname)s: %(message)s", level=log
 
 
 class Diffusion:
-    def __init__(self, noise_steps=1000, beta_start=1e-4, beta_end=0.02, img_size=256, device="cuda"):
+    def __init__(self, noise_steps=1000, beta_start=1e-4, beta_end=0.02, img_size=256, device="mps"):
         self.noise_steps = noise_steps
         self.beta_start = beta_start
         self.beta_end = beta_end
         self.img_size = img_size
         self.device = device
-
+        """这里就是加噪去噪的数学公式,这里的beta的数据结构是列表并且是一维的"""
         self.beta = self.prepare_noise_schedule().to(device)
         self.alpha = 1. - self.beta
+        '这里实现的是计算alpha_hat的累积乘法,并且得到的是一个一维的向量,把之前的alpha_hat进行 cumprod'
         self.alpha_hat = torch.cumprod(self.alpha, dim=0)
 
     def prepare_noise_schedule(self):
         '''
         Generate noise beta of each time step
         return: shape (noise_steps, )
+        生成线性的beta
         '''
         return torch.linspace(self.beta_start, self.beta_end, self.noise_steps)
 
@@ -71,24 +73,29 @@ class Diffusion:
             sampled_images (x_{t-1}) = 1 / sqrt(alpha[t]) * (noisy_images (x_t) - (1 - alpha[t]) / sqrt(1 - alpha_hat[t]) * predicted_noise) + sqrt(beta[t]) * noise
         '''
         logging.info(f"Sampling {n} new images....")
+        '这里主要的作用是告诉模型评估模式,关闭dropout还有梯度'
         model.eval()
         with torch.no_grad():
             x = torch.randn((n, 3, self.img_size, self.img_size)).to(self.device)
             for i in tqdm(reversed(range(1, self.noise_steps)), position=0):
+                '给每个样本都生成一个对应的时间步'
                 t = (torch.ones(n) * i).long().to(self.device)
                 predicted_noise = model(x, t, labels)
                 # interpolate with unconditioned diffusion
                 if cfg_scale > 0:
                     uncond_predicted_noise = model(x, t, None)
                     # predicted_noise = predicted_noise * cfg_scale + uncond_predicted_noise * (1 - cfg_scale)
+                    'torch.lerp 函数执行的是 线性插值 (Linear Interpolation),它的数学定义是:a+w(b - a)'
                     predicted_noise = torch.lerp(uncond_predicted_noise, predicted_noise, cfg_scale)
                 alpha = self.alpha[t][:, None, None, None]
                 alpha_hat = self.alpha_hat[t][:, None, None, None]
                 beta = self.beta[t][:, None, None, None]
+                #这里的的目的是生成扰动的z,在去噪的过程中，我们不仅要减去预测的噪声，还要加回一点点极小的随机噪声。
                 if i > 1:
                     noise = torch.randn_like(x)
                 else:
                     noise = torch.zeros_like(x)
+                #这里是xt-1的计算公式
                 x = 1 / torch.sqrt(alpha) * (x - ((1 - alpha) / (torch.sqrt(1 - alpha_hat))) * predicted_noise) + torch.sqrt(beta) * noise
         model.train()
         x = (x.clamp(-1, 1) + 1) / 2
@@ -103,6 +110,7 @@ def train(args):
     '''
     setup_logging(args.run_name)
     device = args.device
+    #这里实现的是把训练的data数据打乱然后分批次
     dataloader = get_data(args)
     model = UNet_conditional(num_classes=args.num_classes).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=args.lr)
@@ -160,7 +168,7 @@ def launch():
     args.dataset_path = "C:/Users/siat/Downloads/archive/cifar10-64/train"
     args.dataset_path = "D:/Download/Browser/archive/cifar10-64/train"
     args.train = True
-    args.device = "cuda"
+    args.device = "mps"
     args.lr = 3e-4
     train(args)
 
