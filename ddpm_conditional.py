@@ -165,8 +165,8 @@ def launch():
     args.image_size = 64
     args.num_classes = 10
     # args.dataset_path = "C:/Users/dome/datasets/cifar10/cifar10-64/train"
-    args.dataset_path = "C:/Users/siat/Downloads/archive/cifar10-64/train"
-    args.dataset_path = "D:/Download/Browser/archive/cifar10-64/train"
+    # args.dataset_path = "C:/Users/siat/Downloads/archive/cifar10-64/train"
+    args.dataset_path = "./datasets/cifar10_64/train" 
     args.train = True
     args.device = "mps"
     args.lr = 3e-4

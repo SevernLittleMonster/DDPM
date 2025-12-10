@@ -1,2 +1,3 @@
 __pycache__
 models/DDPM_conditional/optim.pt
+datasets/
